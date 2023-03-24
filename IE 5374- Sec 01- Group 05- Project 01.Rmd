@@ -1,0 +1,533 @@
+---
+title: "IE 5374 - Section 1 - Group 5 - Project-1"
+author: "Naren Mohan, Simran Bhatia, Srujana Gaddam"
+date: "11/21/2021"
+output: html_document
+---
+
+# Objective
+The objective of project 1 is to implement different clustering methods to synthetic and real-world data and validate using external and internal validation techniques
+
+# Importing all required libraries
+```{r}
+library(readr)
+library(ClusterR)
+library(cluster)
+library(ggplot2)
+library(plotly)
+library(factoextra)
+```
+
+# Importing all the data
+```{r}
+data1 <- read_csv("IE5374/Homeworks/Project 1/Data1.csv", show_col_types = FALSE)
+data2 <- read_csv("IE5374/Homeworks/Project 1/Data2.csv", show_col_types = FALSE)
+data3 <- read_csv("IE5374/Homeworks/Project 1/Data3.csv", show_col_types = FALSE)
+data4 <- read_csv("IE5374/Homeworks/Project 1/Data4.csv", show_col_types = FALSE)
+data5 <- read_csv("IE5374/Homeworks/Project 1/Data5.csv", show_col_types = FALSE)
+data6 <- read_csv("IE5374/Homeworks/Project 1/Data6.csv", show_col_types = FALSE)
+data7 <- read_csv("IE5374/Homeworks/Project 1/Data7.csv", show_col_types = FALSE)
+data8 <- read_csv("IE5374/Homeworks/Project 1/Data8.csv", show_col_types = FALSE)
+world_indicators <- read_csv("IE5374/Homeworks/Project 1/World Indicators.csv", show_col_types = FALSE)
+```
+
+# Pre-processing some datasets
+```{r}
+names(data2) <- c("...1", "X1", "X2", "X3", "Class")
+data2$...1 <- gsub("X", "", as.character(data2$...1))
+data2$...1 <- as.numeric(data2$...1)
+data2 <- data2 %>%
+  na.omit()
+
+data6$X3 <- rep(1, times=dim(data6)[1])
+data7$X3 <- rep(1, times=dim(data7)[1])
+```
+
+# Setting a seed value
+```{r}
+set.seed(4)
+```
+
+# Task 1
+Data sets “Data1.csv”, “Data2.csv”, “Data3.csv”, “Data4.csv”, “Data5.csv”, “Data6.csv”, “Data7.csv”, “Data8.csv” contain the data points and their respective class information.
+
+For each of the datasets follow the below steps:
+1. Use K-means and hierarchical clustering methods to generate clusters
+2. Evaluate the performance of the clustering algorithm using external validation metrics
+3. Plot (2D or 3D) the data points for each dataset and color them according to the original class
+4. Plot (2D or 3D) the data points for each dataset and color them according to the class allocated by the clustering algorithm
+
+## Creating a function to perform k-means on input dataset using input no of clusters
+```{r}
+performKClustering <- function(dataset, nClusters) {
+  kMeans <- kmeans(dataset, centers=7, 10000, nstart=10)
+  kClusters <- kMeans$cluster
+  kCenters <- as.data.frame(kMeans$centers)
+
+  plot <- plot_ly(data = dataset,
+                  x=dataset$X1,
+                  y=dataset$X2,
+                  z=dataset$X3,
+                  type="scatter3d",
+                  mode="markers",
+                  color=as.factor(kClusters),
+                  colors="Set1",
+                  alpha=0.7,
+                  showlegend=FALSE)
+  
+  plot <- add_trace(plot, 
+                x=kCenters$X1,
+                y=kCenters$X2,
+                z=kCenters$X3, 
+                type="scatter3d",
+                mode="markers",
+                color=as.factor(rep(1, 7)),
+                colors=c("#000000"),
+                stroke=I("Black"),
+                span=I(1))
+
+  plot <- plot %>%
+    layout(title = "K means clustering of Dataset",
+           scene = list(
+             xaxis = list(title = 'X1'),
+             yaxis = list(title = 'X2'),
+             zaxis = list(title = 'X3')))
+  
+  plot
+  
+  return(kClusters)
+}
+```
+
+## Creating a function to perform hierarchical clustering on input dataset using input no of clusters
+```{r}
+performHClustering <- function(dataset, nClusters) {
+  dist <- dist(dataset, method = "euclidean")
+  hc <- hclust(dist, method = "complete" )
+  plot(hc, cex = 0.6, hang = -1)
+  hclust <- cutree(hc, k = nClusters)
+  
+  plot <- plot_ly(data = dataset,
+                  x=dataset$X1,
+                  y=dataset$X2,
+                  z=dataset$X3,
+                  type="scatter3d",
+                  mode="markers",
+                  color=as.factor(hclust),
+                  colors="Set1",
+                  alpha=0.7,
+                  showlegend=FALSE)
+  
+  plot <- plot %>%
+    layout(title = "Hierarchical clustering of Dataset",
+           scene = list(xaxis = list(title = 'X1'),
+                        yaxis = list(title = 'X2'),
+                        zaxis = list(title = 'X3')))
+  
+  plot
+  
+  return(hclust)
+}
+```
+
+## Creating a function to analyze data and review original clusters
+```{r}
+analyzeDataset <- function(dataset) {
+  plot <- plot_ly(data = dataset,
+                 x=dataset$X1,
+                 y=dataset$X2,
+                 z=dataset$X3,
+                 type="scatter3d",
+                 mode="markers",
+                 color=as.factor(dataset$Class),
+                 alpha = 0.7)
+  plot <- plot %>%
+    layout(title = "Dataset with True Labels",
+           scene = list(xaxis = list(title = 'X1'),
+                        yaxis = list(title = 'X2'),
+                        zaxis = list(title = 'X3')))
+  plot
+  
+  # removing first and last columns from input dataset and adding them to a new variable
+  subdataset <- dataset %>%
+    select(-c("...1", "Class"))
+
+  return(subdataset)
+}
+```
+
+## Dataset 1 - Data1.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data1$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data1, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of 5 and 8.
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data1, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of 8.
+
+```{r}
+data1_1 <- analyzeDataset(data1)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data1_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data1$Class, kClusters, summary_stats = TRUE)
+```
+We are looking at nearly ideal values above which shows that the performance of the clustering algorithm has been decent
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data1_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data1$Class, hClusters , summary_stats = TRUE)
+```
+We are looking at ideal values above because the clustering algorithm has perfectly clustered the given dataset.
+
+## Dataset 2 - Data2.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data2$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data2, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of 4.
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data2, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of 2.
+
+```{r}
+data2_1 <- analyzeDataset(data2)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data2_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data2$Class, kClusters, summary_stats = TRUE)
+```
+We are looking at nearly ideal values above which shows that the performance of the clustering algorithm has been decent
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data2_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data2$Class, hClusters , summary_stats = TRUE)
+```
+Here we can observe that the Hierarchical Clustering method is performing poorly in comparison with k-means clustering method
+
+## Dataset 3 - Data3.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data3$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data3, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of 4.
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data3, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of 2.
+
+```{r}
+data3_1 <- analyzeDataset(data3)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data3_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data3$Class, kClusters, summary_stats = TRUE)
+```
+We are looking at ideal values above which shows that the performance of the clustering algorithm has been the best
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data3_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data3$Class, hClusters , summary_stats = TRUE)
+```
+Here we can observe that the Hierarchical clustering method is performing poorly in comparison with k-means clustering method
+
+## Dataset 4 - Data4.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data4$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data4, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of ENTER TEXT HERE
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data4, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of ENTER TEXT HERE
+
+```{r}
+data4_1 <- analyzeDataset(data4)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data4_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data4$Class, kClusters, summary_stats = TRUE)
+```
+We are looking at ideal values above which shows that the performance of the clustering algorithm has been the best
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data4_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data4$Class, hClusters , summary_stats = TRUE)
+```
+The dataset is quite complex for both K means and Hierarchical (since both are distance based) algorithms. We can see that the performance of the algorithm is poor
+
+## Dataset 5 - Data5.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data5$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data5, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of ENTER TEXT HERE
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data5, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of ENTER TEXT HERE
+
+```{r}
+data5_1 <- analyzeDataset(data5)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data5_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data5$Class, kClusters, summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data5_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data5$Class, hClusters , summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+## Dataset 6 - Data6.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data6$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data6, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of ENTER TEXT HERE
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data6, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of ENTER TEXT HERE
+
+```{r}
+data6_1 <- analyzeDataset(data6)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data6_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data6$Class, kClusters, summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data6_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data6$Class, hClusters , summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+## Dataset 7 - Data7.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data7$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data7, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of ENTER TEXT HERE
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data7, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of ENTER TEXT HERE
+
+```{r}
+data7_1 <- analyzeDataset(data7)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data7_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data7$Class, kClusters, summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data7_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data7$Class, hClusters , summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+## Dataset 8 - Data8.csv
+
+### Internal validation and analysis of the cluster
+How many unique classes exist in this data set?
+```{r}
+nClusters <- length(unique(data8$Class))
+cat("Number of classes in the dataset:", nClusters)
+```
+
+What is the ideal number of clusters using WSS method?
+```{r}
+fviz_nbclust(data8, FUNcluster = kmeans, method = "wss")
+```
+WSS method suggests an optimal number of clusters of ENTER TEXT HERE
+
+What is the ideal number of clusters suggested by silhouette method?
+```{r}
+fviz_nbclust(data8, FUNcluster = kmeans, method = "silhouette")
+```
+Average silhouette method suggests an optimal number of clusters of ENTER TEXT HERE
+
+```{r}
+data8_1 <- analyzeDataset(data8)
+```
+
+### Using k-means clustering
+```{r}
+kClusters <- performKClustering(data8_1, nClusters)
+```
+
+### External validation of k-means
+```{r}
+external_validation(data8$Class, kClusters, summary_stats = TRUE)
+```
+ENTER TEXT HERE
+
+### Hierarchical Clustering
+```{r echo=TRUE, eval=TRUE}
+hClusters <- performHClustering(data8_1, nClusters)
+```
+
+### External validation of hierarchical clustering
+```{r echo=TRUE, eval=TRUE}
+external_validation(data8$Class, hClusters , summary_stats = TRUE)
+```
+ENTER TEXT HERE
